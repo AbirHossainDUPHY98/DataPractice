@@ -1,0 +1,178 @@
+# How do Bangladesh's macroeconomic indicators relate to financial sector growth and stability? 
+
++ Datasets: World Bank (macro indicators)
+              - GDP per capita
+              - Inflation (CPI)
+              - Broad money (% of GDP)
+              - Domestic credit to private sector (% of GDP)
+              - Bank nonperforming loans (% of loans)
+            Bangladesh Bank (aggregated banking statistics) 
+            #Checked:No microdata,Only report pdfs. No Data tables. No microdata.
+              - Total deposits
+              - Total advances
+              - Interest rates
+              - Classified loans
+              - Capital adequacy ratio
+            IMF Financial Soundness Indicators
+              - with python script + api requests.
+
++ Raw Data Storage
+
++ Light cleaning in python
+
++ Load to PostgreSQL
+ 5 tables: dim_time
+           dim_indicator
+           dim_source
+           fact_macro
+           fact_banking
+ Maybe some temporary tables too.
+
++ SQL Analytics
+
++ Report the study in in a typst file with visuals made by python
+
+
+##Study this section: this is how to initialize a database cluster in nix
+[abir@AbirHossain:~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD]$ initdb -D ~/pgdata/
+The files belonging to this database system will be owned by user "abir".
+This user must also own the server process.
+
+The database cluster will be initialized with this locale configuration:
+  locale provider:   libc
+  LC_COLLATE:  en_US.UTF-8
+  LC_CTYPE:    en_US.UTF-8
+  LC_MESSAGES: en_US.UTF-8
+  LC_MONETARY: bn_BD
+  LC_NUMERIC:  bn_BD
+  LC_TIME:     bn_BD
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory /home/abir/pgdata ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default "max_connections" ... 100
+selecting default "shared_buffers" ... 128MB
+selecting default time zone ... Asia/Dhaka
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+
+Success. You can now start the database server using:
+
+    pg_ctl -D /home/abir/pgdata/ -l logfile start
+
+
+[abir@AbirHossain:~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD]$ 
+
+
+PostgreSQL by default tries to create a lock/socket file in /run/postgresql, which doesn’t exist or isn’t writable in your setup. Since Nix doesn’t create system directories for services, you need to tell Postgres to use a different Unix socket directory inside your home folder.
+
+Step 1 — Create a socket directory in your home
+mkdir -p ~/pgsocket
+
+Step 2 — Start Postgres using that socket
+pg_ctl -D ~/pgdata -l ~/pgdata/logfile -o "-k ~/pgsocket" start
+
+
+Explanation:
+
+-o "-k ~/pgsocket" → tells Postgres to put its socket in ~/pgsocket instead of /run/postgresql.
+
+All files (lock and socket) will now live in a writable directory.
+
+Step 3 — Connect with psql
+
+You must tell psql where the socket is:
+
+psql -h ~/pgsocket -d postgres
+
+
+-h ~/pgsocket → use that socket directory
+
+-d postgres → default database
+
+Step 4 — Create your database
+
+Inside psql:
+
+CREATE DATABASE "BD_Banking_Analysis";
+\q
+
+Step 5 — Run your schema
+psql -h ~/pgsocket -d BD_Banking_Analysis -f sql/schema.sql
+
+
+Now it should succeed, creating:
+
+dim_time
+dim_indicator
+dim_source
+fact_macro
+fact_banking
+[abir@AbirHossain:~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD]$ mkdir -p ~/pgsocket
+
+[abir@AbirHossain:~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD]$ pg_ctl -D ~/pgdata -l ~/pgdata/logfile -o "-k ~/pgsocket" start
+waiting for server to start.... done
+server started
+
+[abir@AbirHossain:~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD]$ psql -h ~/pgsocket -d postgres
+psql (17.6)
+Type "help" for help.
+
+postgres=# create DATABASE "BD_Banking_Analysis"
+postgres-# psql -h ~/pgsocket -d BD_Banking_Analysis -f sql/schema.sql
+postgres-# select count((*) from dim_time
+postgres(# ^Z
+[1]+  Stopped                 psql -h ~/pgsocket -d postgres
+
+[abir@AbirHossain:~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD]$ psql -h ~/pgsocket -d postgres
+psql (17.6)
+Type "help" for help.
+
+postgres=# \c "BD_Banking_Analysis"
+connection to server on socket "/home/abir/pgsocket/.s.PGSQL.5432" failed: FATAL:  database "BD_Banking_Analysis" does not exist
+Previous connection kept
+postgres=# create DATABASE "BD_Banking_Analysis";
+CREATE DATABASE
+postgres=# \c "BD_Banking_Analysis"
+You are now connected to database "BD_Banking_Analysis" as user "abir".
+BD_Banking_Analysis=# \dt
+Did not find any relations.
+BD_Banking_Analysis=# \i ~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD/sql/schema.sql 
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+BD_Banking_Analysis=# \dt
+BD_Banking_Analysis=# select 'dim_time',count(*) from dim_time;
+ ?column? | count 
+----------+-------
+ dim_time |     0
+(1 row)
+
+# loading data
+BD_Banking_Analysis=# \i /home/abir/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD/sql/load_wb.sql 
+CREATE TABLE
+COPY 155
+COPY 155
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+INSERT 0 310
+INSERT 0 0
+DROP TABLE
+BD_Banking_Analysis=# 
+
+
+# to connect to the database: 
+psql -h ~/pgsocket -d BD_Banking_Analysis
+
