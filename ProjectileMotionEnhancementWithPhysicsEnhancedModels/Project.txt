@@ -1,0 +1,62 @@
+### Workflow: Data enhanced computational model for projectile motion ODE solver.
+
+## Baseline:
+# Solve projectile motion with rk4
+# Validate range , time of flight correctness.
+
+## Add constant drag:
+# simulate different- different launch angles
+                    - different masses
+                    - different Cd(drag coefficient)
+# compare- range reduction
+         - time of flight
+
+
+
+## Load real atmospheric data:
+# To interpolate density as rho function of y
+
+## Replace density with interpolated density
+# plot: - trajectory comparison
+        - velocity vs time
+        - range vs launch angle 
+        - error between constant vs variable density
+
+## vary Cd, m, A to measure
+# sensitivity of range
+# stability of numerical method
+
+## may improve by adding - Wind model
+                         - Coriolis effect
+                         - Cross-sectional area variable for projectile
+
+
+*** Normalize velocity vector in drag term
+    quadratic drag derivation
+    numerical stability basics
+    linear interpolation
+    error analysis
+# Base Model --	Capture the dominant physical trend -- ρbase(h)=ρ0⋅e−h/H
+# Residual Model -- Capture deviations from the base -- Δρ(h)=Spline(ρdata−ρbase)
+# Final Model -- Combine both -- ρ(h)=ρbase(h)+Δρ(h)
+# Splines need rules for how to behave at the endpoints.-- Natural spline: Second derivative = 0 at ends (default in scipy)
+                                                        -- Clamped spline: Specify first derivative at ends (if you know the slope)
+                                                        -- Not-a-knot: Third derivative continuous at first/last interior knot (often best for physical data)
+# Your solver might query ρ(h) at:
+#   h<0h<0 (if projectile dips below launch altitude due to numerical error)
+#   h>hmax(if you launch a high-altitude projectile)
+# Monte-carlo for- Propagate uncertainity through trajectory- sampling initial conditions, parameters and rho variability.
+
+# now: - Get US Standard Atmosphere CSV (0-50 km, altitude/density columns)
+       - Write a standalone rho_spline(h) function using scipy.interpolate.CubicSpline
+       - Add clamping: h = np.clip(h, 0, 50000) before interpolation
+       - Test: rho_spline(0), rho_spline(10000), rho_spline(-100), rho_spline(60000)
+       - Integrate into your RK4 derivatives() function
+       - Run one trajectory: compare range vs. constant-density case
+
+Questions to Guide Your Design
+    What is the maximum altitude you expect your projectiles to reach? (This sets your h_max)
+    Do you need real-time weather data, or is a standard atmosphere sufficient for your goals?
+    What output metrics matter most? (Range accuracy? Computational speed? Uncertainty bounds?)
+
+# hybrid_density done. 1 step. May improve later. 

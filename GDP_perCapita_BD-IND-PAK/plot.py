@@ -7,17 +7,17 @@ import seaborn as sns
 df = pd.read_csv("GDP_per_capita_BD_IND_PAK_2005_2025_clean.csv")
 
 # --- Plot ---
-plt.figure(figsize=(10,6))
-sns.lineplot(data=df, x='Year', y='GDP_per_capita', hue='Country', marker='o')
+plt.figure(figsize=(10,6))  # create blank canvas -- size
+sns.lineplot(data=df, x='Year', y='GDP_per_capita', hue='Country', marker='o')  # draw the line chart .
 
 plt.title("GDP per Capita: Bangladesh vs India vs Pakistan (2005-2025)")
 plt.ylabel("GDP per Capita (current US$)")
 plt.xlabel("Year")
-plt.grid(True)
-plt.tight_layout()
+plt.grid(True)  # add grid lines.
+plt.tight_layout() # Automatically adjusts padding.
 
 # --- Show plot ---
-plt.savefig("GDP_per_capita_plot.png")
+plt.savefig("GDP_per_capita_plot.png")  # This must come before plt.show(). Once you show the plot, Matplotlib clears the memory, and saving afterward might result in a blank image.
 plt.show()
 
 

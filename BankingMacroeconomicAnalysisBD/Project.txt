@@ -1,5 +1,4 @@
 # How do Bangladesh's macroeconomic indicators relate to financial sector growth and stability? 
-
 + Datasets: World Bank (macro indicators)
               - GDP per capita
               - Inflation (CPI)
@@ -17,9 +16,7 @@
               - with python script + api requests.
 
 + Raw Data Storage
-
 + Light cleaning in python
-
 + Load to PostgreSQL
  5 tables: dim_time
            dim_indicator
@@ -27,17 +24,13 @@
            fact_macro
            fact_banking
  Maybe some temporary tables too.
-
 + SQL Analytics
-
 + Report the study in in a typst file with visuals made by python
-
 
 ##Study this section: this is how to initialize a database cluster in nix
 [abir@AbirHossain:~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD]$ initdb -D ~/pgdata/
 The files belonging to this database system will be owned by user "abir".
 This user must also own the server process.
-
 The database cluster will be initialized with this locale configuration:
   locale provider:   libc
   LC_COLLATE:  en_US.UTF-8
@@ -47,10 +40,8 @@ The database cluster will be initialized with this locale configuration:
   LC_NUMERIC:  bn_BD
   LC_TIME:     bn_BD
 The default database encoding has accordingly been set to "UTF8".
-The default text search configuration will be set to "english".
-
+The default text search configuration will be set to "english"
 Data page checksums are disabled.
-
 fixing permissions on existing directory /home/abir/pgdata ... ok
 creating subdirectories ... ok
 selecting dynamic shared memory implementation ... posix
@@ -64,54 +55,30 @@ syncing data to disk ... ok
 
 initdb: warning: enabling "trust" authentication for local connections
 initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
-
 Success. You can now start the database server using:
-
     pg_ctl -D /home/abir/pgdata/ -l logfile start
 
-
 [abir@AbirHossain:~/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD]$ 
-
-
 PostgreSQL by default tries to create a lock/socket file in /run/postgresql, which doesn’t exist or isn’t writable in your setup. Since Nix doesn’t create system directories for services, you need to tell Postgres to use a different Unix socket directory inside your home folder.
-
 Step 1 — Create a socket directory in your home
 mkdir -p ~/pgsocket
-
-Step 2 — Start Postgres using that socket
+*** Step 2 — Start Postgres using that socket
 pg_ctl -D ~/pgdata -l ~/pgdata/logfile -o "-k ~/pgsocket" start
-
-
 Explanation:
-
 -o "-k ~/pgsocket" → tells Postgres to put its socket in ~/pgsocket instead of /run/postgresql.
-
 All files (lock and socket) will now live in a writable directory.
-
 Step 3 — Connect with psql
-
 You must tell psql where the socket is:
-
 psql -h ~/pgsocket -d postgres
-
-
 -h ~/pgsocket → use that socket directory
-
 -d postgres → default database
-
 Step 4 — Create your database
-
 Inside psql:
-
 CREATE DATABASE "BD_Banking_Analysis";
 \q
-
 Step 5 — Run your schema
 psql -h ~/pgsocket -d BD_Banking_Analysis -f sql/schema.sql
-
-
 Now it should succeed, creating:
-
 dim_time
 dim_indicator
 dim_source
@@ -175,4 +142,215 @@ BD_Banking_Analysis=#
 
 # to connect to the database: 
 psql -h ~/pgsocket -d BD_Banking_Analysis
+  from inside postgres-# \c database_name
 
+# Copy to table as csv directly-- 
+BD_Banking_Analysis=# \copy (SELECT * FROM macro_prepared) TO '/home/abir/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD/macro_prepared.csv' CSV HEADER;
+COPY 745
+BD_Banking_Analysis=# \copy (select * from macro_banking_overlap) to '/home/abir/PaPa/MyGym/DataPractice/BankingMacroeconomicAnalysisBD/macro_banking_overlap.csv' CSV HEADER;
+COPY 318
+BD_Banking_Analysis=# 
+
+
+### Concepts:
+# This is listing all objects in the current schema:
+BD_Banking_Analysis-# \d
+                     List of relations
+ Schema |              Name              |   Type   | Owner 
+--------+--------------------------------+----------+-------
+ public | dim_indicator                  | table    | abir
+ public | dim_indicator_indicator_id_seq | sequence | abir
+ public | dim_source                     | table    | abir
+ public | dim_source_source_id_seq       | sequence | abir
+ public | dim_time                       | table    | abir
+ public | dim_time_time_id_seq           | sequence | abir
+ public | fact_banking                   | table    | abir
+ public | fact_banking_fact_id_seq       | sequence | abir
+ public | fact_macro                     | table    | abir
+ public | fact_macro_fact_id_seq         | sequence | abir
+(10 rows)
+
+Here: Database/Schema(public)/tables
+                             /sequences:(A sequence is an automatic number generator:dim_indicator_indicator_id_seq
+This is used to auto-generate primary keys.
+When you created something like: indicator_id SERIAL PRIMARY KEY
+PostgreSQL silently created: dim_indicator_indicator_id_seq
+Every time you insert a new row:INSERT INTO dim_indicator (indicator_name)
+                                VALUES ('GDP');
+PostgreSQL internally does: nextval('dim_indicator_indicator_id_seq')
+So IDs auto-increment:
+1
+2
+3
+4
+That’s what sequences do.
+PostgreSQL created one sequence per auto-increment column.
+## 3 Dimension Tables
+     dim_indicator
+     dim_time
+     dim_source
+   2 Fact Tables
+     fact_macro
+     fact_banking
+And each has an ID auto-generator (sequence).
+                             )
+                             /views
+                             /etc
+# Without dimensions, you'd have ugly wide tables like:
+  year | gdp | inflation | credit | npl | ...
+
+###  BD_Banking_Analysis:
+## dim_indicator : 
+  indicator_id(int) - indicator_code(notNull) - indicator_name(notNull)
+## dim_source:
+  souce_id(notNull) - source_name(notNull)
+## dim_time: 
+  time_id(notNull) - year(notNull)
+## fact_banking:
+  fact_id(notNull) - time_id(notNull) - indicator_id(notNull) - value(notNull) -    source_id(notNull)
+## fact_macro:
+  fact_id(notNull) - time_id(notNull) - indicator_id(notNull) - value(notNull) - s  ource_id(notNull)
+        fact_macro: indicator_name                 
+------------------------------------------------
+ bank_nonperforming_loans_to_total_gross_loans_
+ broad_money_of_gdp_
+ domestic_credit_to_private_sector_of_gdp_
+ gdp
+ gdp_growth
+ gdp_per_capita
+ gdp_per_capita_current_us_
+ government_debt
+ inflation_consumer_prices_annual_
+ inflation_rate
+ total_investment
+ unemployed_rate
+(12 rows)
+
+        fact_banking: indicator_name             
+---------------------------------------
+ Deposits_to_loans_pct
+ Loans_to_domestic_economy_million_BDT
+ Loans_total
+ Nonperforming_loans_pct
+(4 rows)
+
+# Macro Indicators:
+GDP / Output --	GDP, GdpPerCapita, GDPPerCapitaCurrent$
+Credit / Money --	BroadMoneyOfGDP, DomesticCreditToPrivateSectorOfGDP
+Fiscal --	GovtDebt, TotalInvestment
+Prices --	InflationConsumerPricesAnnual, InflationRate
+Labor --	UnemployedRate
+Banking-related macro --  bankNonperformingLoansToTotalGrossLoans
+# Banking Indicators:
+Liquidity / Leverage --	depositsToLoansPCT, LoansToDomesticEconomy
+Credit --	loansTotal
+Stability --  NonperformingLoansPCT
+
+# Macro Calculations
+GDP growth: (GDP_this_year − GDP_last_year) / GDP_last_year * 100
+GDP per capita growth: same as above, per capita
+Broad money / GDP trend: % of GDP over time
+Domestic credit / private sector / GDP: monitor financial deepening
+Government debt / GDP: fiscal leverage
+Inflation trends: CPI or annual inflation rate
+Unemployment trends
+# Banking Calculations
+Loan-to-deposit ratio: loansTotal / deposits or depositsToLoansPCT
+Loans to domestic economy: track growth / share
+NPL ratio: NonperformingLoansPCT → banking stability
+# Cross-calculations (Macro ↔ Banking)
+Credit-to-GDP ratio: DomesticCreditToPrivateSectorOfGDP or loansTotal / GDP
+NPL-to-GDP trend: NPL ratio × total loans / GDP
+Financial depth vs GDP per capita: see if credit growth matches economic growth
+
+## views.sql
+# Common types of queries you’d see in a views.sql in other projects
+Type --	What it does --	Example
+Aggregations / Summaries --	Pre-compute totals, averages, counts --	total_sales_per_month, avg_salary_by_department
+# Calculated fields / metrics --	Compute derived values like growth, percentages, ratios --	yearly_change, profit_margin, conversion_rate
+# Filtered subsets --	Keep only relevant rows for analysis --	active_customers_last_year, transactions_above_1000
+# Joins across tables --	Combine multiple tables into one analytical view --	orders + customers + products → sales_summary
+# Categorization / labeling --	Add meaningful categories or flags --	customer_segment, risk_level, region_group
+Time-based metrics --	Rolling sums, cumulative totals, or lag/lead calculations --	moving_average, YoY_growth, monthly_cumulative_revenue
+
+### Reporting:
+## Three Layers of Analysis
+ # Macro Trends (economy-wide)
+    Purpose: show how Bangladesh’s economy has evolved over time.
+    Indicators:GDP, GDP per capita, GDP growth,
+               InflationConsumerPricesAnnual, InflationRate
+               GovtDebt, TotalInvestment
+               UnemployedRate
+               BroadMoneyOfGDP, DomesticCreditToPrivateSectorOfGDP
+    Calculations:Year-over-year growth rates
+                 Trend lines (GDP, per capita income, inflation)
+                 Ratios like BroadMoney/GDP, GovtDebt/GDP
+                 Reporting / Insights:
+                 Identify periods of fast/slow growth
+                 Highlight inflation spikes
+                 Show fiscal leverage trends
+                 Discuss monetary expansion (BroadMoney/GDP)
+ # Banking Trends (sector-specific)
+    Purpose: evaluate banking sector performance and stability.
+    Indicators:loansTotal, LoansToDomesticEconomy
+               depositsToLoansPCT
+               NonperformingLoansPCT
+    Calculations:Loan-to-deposit ratio (liquidity)
+                 Credit growth trends
+                 NPL ratio trend (banking stability)
+    Reporting / Insights:Identify periods of rapid credit growth
+                         Highlight risk trends (NPL spikes)
+                         Compare loan/deposit ratios to benchmarks
+                         Discuss banking sector resilience
+
+ # Macro ↔ Banking (cross-sector)
+    Purpose:connect banking activity with the overall economy.
+    Examples:Credit-to-GDP ratio → shows financial deepening
+             NPL-to-GDP → links banking stress to economic size
+             Lending vs GDP growth → real sector impact
+             Real lending rate = lending rate − inflation
+    Calculations:Ratios and derived metrics using fact_macro + fact_banking
+                 Time series trends
+                 Growth or volatility measures
+    Reporting / Insights:Evaluate if banking growth aligns with GDP growth=
+                         Highlight systemic risk periods
+                         Identify gaps in credit allocation
+                         Recommend policy focus areas
+# Suggested Report Structure
+  1. Introduction
+      Study objective: Bangladesh banking + macroeconomic analysis
+      Data source overview (fact_macro + fact_banking)
+  2. Macro Overview
+      GDP trends, growth rates, per capita trends
+      Inflation and monetary indicators
+      Fiscal indicators
+  3. Banking Sector Overview
+      Loan, deposit, liquidity trends
+      NPL ratio trend
+      Stability and risk assessment
+  4. Macro-Banking Interactions
+      Credit-to-GDP analysis
+      Real lending rate vs inflation
+      NPL-to-GDP and impact on economy
+  5. Observations & Insights
+      Highlight strong trends (e.g., rapid credit growth)
+      Point out risk periods (e.g., NPL spikes)
+      Comment on policy relevance
+  6. Recommendations
+      Where credit allocation could be improved
+      Policy suggestions (monetary/fiscal/banking regulations)
+      Areas needing further study
+
+# Visualization / Reporting :
+Time series plots for trends (GDP, loans, credit-to-GDP)
+Bar charts / stacked areas for composition (credit vs GDP)
+Heatmaps for risk indicators (NPL ratio, inflation spikes)
+Tables for key metrics (average growth, max/min)
+
+# Decision Logic / Use Cases:
+GDP growth --	Macro policy adjustment, investment focus
+Inflation -- 	Monetary policy / interest rate guidance
+Credit-to-GDP --	Financial deepening assessment
+NPL ratio --	Banking sector health; stricter supervision if high
+Loan-to-deposit ratio --	Liquidity risk; capital requirement check
+Real lending rate --	Encourage productive lending; curb speculative lending
